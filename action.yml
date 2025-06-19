@@ -1,34 +1,106 @@
 name: "Dotnet Cut Tag"
-description: "A simple GitHub Action that prints a greeting"
+description: "Bumps version in Directory.Build.props and creates a git tag for .NET projects"
 author: "Jimmie Fulton <jimmie.fulton@gmail.com>"
 
 # Define the inputs for this action
 inputs:
-  who-to-greet:
-    description: "Who to greet"
-    required: true
-    default: "World"
-  message:
-    description: "Custom message to include"
+  version-level:
+    description: "The version level to bump (patch, minor, major)"
     required: false
-    default: "Hello"
+    default: "patch"
+  directory-build-props-path:
+    description: "Path to Directory.Build.props file"
+    required: false
+    default: "Directory.Build.props"
 
 # Define the outputs for this action
 outputs:
-  time:
-    description: "The time we greeted you"
-    value: ${{ steps.hello.outputs.time }}
+  version:
+    description: "The new version number"
+    value: ${{ steps.bump-version.outputs.version }}
+  tag:
+    description: "The created git tag"
+    value: ${{ steps.create-tag.outputs.tag }}
 
 # Define the runs configuration
 runs:
   using: "composite"
   steps:
-    - name: Hello step
-      id: hello
+    - name: Bump version
+      id: bump-version
       shell: bash
       run: |
-        echo "${{ inputs.message }}, ${{ inputs.who-to-greet }}!"
-        echo "time=$(date)" >> $GITHUB_OUTPUT
+        # Check if Directory.Build.props exists
+        if [ ! -f "${{ inputs.directory-build-props-path }}" ]; then
+          echo "Error: Directory.Build.props not found at ${{ inputs.directory-build-props-path }}"
+          exit 1
+        fi
+        
+        # Extract current version from Directory.Build.props
+        current_version=$(grep -oP '<VersionPrefix>\K[^<]+' "${{ inputs.directory-build-props-path }}")
+        
+        if [ -z "$current_version" ]; then
+          echo "Error: Could not find VersionPrefix in Directory.Build.props"
+          exit 1
+        fi
+        
+        echo "Current version: $current_version"
+        
+        # Parse version components
+        IFS='.' read -r major minor patch <<< "$current_version"
+        
+        # Bump version based on input
+        case "${{ inputs.version-level }}" in
+          "major")
+            major=$((major + 1))
+            minor=0
+            patch=0
+            ;;
+          "minor")
+            minor=$((minor + 1))
+            patch=0
+            ;;
+          "patch")
+            patch=$((patch + 1))
+            ;;
+          *)
+            echo "Error: Invalid version-level. Must be 'patch', 'minor', or 'major'"
+            exit 1
+            ;;
+        esac
+        
+        new_version="$major.$minor.$patch"
+        echo "New version: $new_version"
+        
+        # Update Directory.Build.props
+        sed -i.bak "s/<VersionPrefix>$current_version<\/VersionPrefix>/<VersionPrefix>$new_version<\/VersionPrefix>/" "${{ inputs.directory-build-props-path }}"
+        
+        # Remove backup file
+        rm "${{ inputs.directory-build-props-path }}.bak"
+        
+        echo "version=$new_version" >> $GITHUB_OUTPUT
+    
+    - name: Create git tag
+      id: create-tag
+      shell: bash
+      run: |
+        version="${{ steps.bump-version.outputs.version }}"
+        tag="v$version"
+        
+        # Configure git
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Add and commit changes
+        git add "${{ inputs.directory-build-props-path }}"
+        git commit -m "Bump version to $version"
+        
+        # Create and push tag
+        git tag "$tag"
+        git push origin HEAD --tags
+        
+        echo "Created and pushed tag: $tag"
+        echo "tag=$tag" >> $GITHUB_OUTPUT
 
 # Define the branding for the action in the GitHub Marketplace
 branding:
