@@ -1,38 +1,33 @@
-name: Release
+name: Release Action
 
 on:
   workflow_dispatch:
     inputs:
-      version-level:
-        description: 'Version level to bump'
+      release_type:
+        description: "Type of release to create"
         required: true
+        default: "minor_release"
         type: choice
         options:
-          - patch
-          - minor
-          - major
-        default: patch
-
-permissions:
-  contents: write
+          - "minor_release"
+          - "major_branch"
 
 jobs:
   release:
+    name: Create Release
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0 # Fetch all history and tags
 
-      - name: Cut tag
-        id: cut-tag
-        uses: ./
+      - name: Run GitHub Repository Release Action
+        uses: p6m-actions/repository-release@v1
         with:
-          version-level: ${{ inputs.version-level }}
-
-      - name: Output results
-        run: |
-          echo "New version: ${{ steps.cut-tag.outputs.version }}"
-          echo "Created tag: ${{ steps.cut-tag.outputs.tag }}"
+          release_type: ${{ github.event.inputs.release_type }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
