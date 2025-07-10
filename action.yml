@@ -12,6 +12,18 @@ inputs:
     description: "Path to Directory.Build.props file"
     required: false
     default: "Directory.Build.props"
+  commit-changes:
+    description: "Whether to commit the version changes"
+    required: false
+    default: "true"
+  commit-message:
+    description: "Custom commit message. Use {version} as placeholder for the new version"
+    required: false
+    default: "Bump version to {version} [skip ci]"
+  skip-push:
+    description: "Skip pushing changes and tags (useful for testing)"
+    required: false
+    default: "false"
 
 # Define the outputs for this action
 outputs:
@@ -91,15 +103,36 @@ runs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         
-        # Add and commit changes
-        git add "${{ inputs.directory-build-props-path }}"
-        git commit -m "Bump version to $version"
+        # Commit changes if enabled
+        if [ "${{ inputs.commit-changes }}" == "true" ]; then
+          # Add and commit changes
+          git add "${{ inputs.directory-build-props-path }}"
+          
+          # Replace {version} placeholder in commit message
+          commit_message="${{ inputs.commit-message }}"
+          commit_message="${commit_message//\{version\}/$version}"
+          
+          git commit -m "$commit_message"
+          echo "Committed version changes"
+        else
+          echo "Skipping commit (commit-changes is false)"
+        fi
         
-        # Create and push tag
+        # Create tag
         git tag "$tag"
-        git push origin HEAD --tags
+        echo "Created tag: $tag"
         
-        echo "Created and pushed tag: $tag"
+        # Push changes and tag if not skipped
+        if [ "${{ inputs.skip-push }}" != "true" ]; then
+          if [ "${{ inputs.commit-changes }}" == "true" ]; then
+            git push origin HEAD
+          fi
+          git push origin "$tag"
+          echo "Pushed changes and tag to origin"
+        else
+          echo "Skipping push (skip-push is true)"
+        fi
+        
         echo "tag=$tag" >> $GITHUB_OUTPUT
 
 # Define the branding for the action in the GitHub Marketplace

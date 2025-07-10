@@ -29,6 +29,9 @@ Add this action to your workflow after checking out your code:
 |-------|-------------|----------|---------|
 | `version-level` | Version level to bump (patch, minor, or major) | No | `patch` |
 | `directory-build-props-path` | Path to Directory.Build.props file | No | `Directory.Build.props` |
+| `commit-changes` | Whether to commit the version changes | No | `true` |
+| `commit-message` | Custom commit message. Use `{version}` as placeholder | No | `Bump version to {version} [skip ci]` |
+| `skip-push` | Skip pushing changes and tags (useful for testing) | No | `false` |
 
 ## Outputs
 
@@ -129,6 +132,42 @@ jobs:
     directory-build-props-path: "src/Directory.Build.props"
 ```
 
+### Custom Commit Message
+
+```yaml
+- name: Cut Tag
+  uses: p6m-actions/dotnet-cut-tag@v1
+  with:
+    version-level: "patch"
+    commit-message: "chore: release v{version}"
+```
+
+### Testing Without Push
+
+```yaml
+- name: Cut Tag (Test Mode)
+  uses: p6m-actions/dotnet-cut-tag@v1
+  with:
+    version-level: "minor"
+    skip-push: true  # Won't push to remote
+```
+
+### Separate Version Update and Commit
+
+```yaml
+- name: Update Version Only
+  uses: p6m-actions/dotnet-cut-tag@v1
+  with:
+    version-level: "major"
+    commit-changes: false  # Only updates file, no commit
+
+- name: Commit and Push Manually
+  run: |
+    git add .
+    git commit -m "Custom commit workflow"
+    git push
+```
+
 ## Prerequisites
 
 Your repository must have a `Directory.Build.props` file with a `<VersionPrefix>` element:
@@ -152,5 +191,7 @@ Your repository must have a `Directory.Build.props` file with a `<VersionPrefix>
    - `minor`: Increments the minor version and resets patch (1.0.1 → 1.1.0)
    - `major`: Increments the major version and resets minor and patch (1.1.0 → 2.0.0)
 3. **File Update**: Updates the Directory.Build.props file with the new version
-4. **Git Operations**: Commits the version change and creates a new tag (e.g., `v1.0.1`)
-5. **Push**: Pushes both the commit and the new tag to the repository
+4. **Git Operations**: 
+   - Commits the version change (if `commit-changes` is true)
+   - Creates a new tag (e.g., `v1.0.1`)
+5. **Push**: Pushes both the commit and tag to the repository (unless `skip-push` is true)
