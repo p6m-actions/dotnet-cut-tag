@@ -38,6 +38,9 @@ outputs:
 runs:
   using: "composite"
   steps:
+    - name: Token Exchange
+      uses: p6m-actions/token-exchange@v2
+
     - name: Bump version
       id: bump-version
       shell: bash
@@ -99,11 +102,6 @@ runs:
         version="${{ steps.bump-version.outputs.version }}"
         tag="v$version"
         
-        # Configure git
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        
-        # Commit changes if enabled
         if [ "${{ inputs.commit-changes }}" == "true" ]; then
           # Add and commit changes
           git add "${{ inputs.directory-build-props-path }}"
