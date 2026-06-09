@@ -117,7 +117,7 @@ runs:
         fi
         
         # Create tag
-        git tag "$tag"
+        git tag -a "$tag" -m "Release $tag"
         echo "Created tag: $tag"
         
         # Push changes and tag if not skipped
